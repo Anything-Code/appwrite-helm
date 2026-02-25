@@ -286,33 +286,22 @@ clamav:
   enabled: true
   # -- Clamav image settings
   image: 
-    repository: appwrite/clamav
-    tag: "2.0.0"
+    repository: clamav/clamav
+    tag: "1.0"
     pullPolicy: ""
 
   persistence:
     # -- ClamAV storage size
-    size: 1Gi
+    size: 2Gi
 
-  freshclam:
-    # -- Resources for the ClamAV auth-update process
-    resources:
-      requests:
-        memory: 128Mi
-        cpu: 100m
-      limits:
-        memory: 256Mi
-        cpu: 250m
-
-  clamd:
-    # -- Resources for the ClamAV scan process
-    resources:
-      requests:
-        memory: 256Mi
-        cpu: 100m
-      limits:
-        memory: 2Gi
-        cpu: 1
+  # -- Resources for the ClamAV container (runs both freshclam and clamd)
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 100m
+    limits:
+      memory: 2Gi
+      cpu: 1
 
 functions:
   # -- The maximum number of seconds allowed as a timeout value when creating a new function.
