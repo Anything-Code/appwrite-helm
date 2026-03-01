@@ -1,4 +1,5 @@
 {{- range $k, $v := .Values.appwrite.volumes }}
+{{- if ne $k "coreAffinity" }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -15,4 +16,5 @@ spec:
   {{- with $v.storageClass }}
   storageClassName: {{ . }}
   {{- end }}  
+{{- end }}
 {{- end }}

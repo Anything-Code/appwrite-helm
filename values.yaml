@@ -75,7 +75,7 @@ appwrite:
     # -- This variable allows you to disable the collection and displaying of usage stats. 
     # You will need an external InfluxDB instance in the `monitoring` namespace.
     # When disabled, the Usage and Telegraf containers will be turned off.
-    enabled: true
+    enabled: false
     # -- The stats aggregation interval in seconds
     interval: 30
 
@@ -102,6 +102,10 @@ appwrite:
       cpu: 250m
 
   volumes:
+    # -- Enable pod affinity to colocate worker pods with core on the same node.
+    # Required when using ReadWriteOnce (RWO) volumes. Disable if using ReadWriteMany (RWX) volumes.
+    coreAffinity:
+      enabled: true
     uploads:
       # -- Upload volume size
       size: 1Gi

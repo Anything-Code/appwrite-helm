@@ -14,6 +14,8 @@ spec:
   {{- if not .Values.appwrite.autoscaling.enabled }}
   replicas: {{ .Values.appwrite.replicaCount }}
   {{- end }}
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
@@ -29,7 +31,9 @@ spec:
       initContainers:
       {{- include "redisCheck" $ | nindent 6 }}
       {{- include "dbCheck" $ | nindent 6 }}
+      {{- if .Values.appwrite.usageStats.enabled }}
       {{- include "influxdbCheck" $ | nindent 6 }}
+      {{- end }}
       containers:
       - name: appwrite-core
         image: "{{ .Values.appwrite.image.repository }}:{{ .Values.appwrite.image.tag | default .Chart.AppVersion }}"
@@ -45,14 +49,14 @@ spec:
         {{- if .Values.mariadb.auth.existingSecret }}
           - name: _APP_DB_PASS
             valueFrom:
-            secretKeyRef:
-              name: {{ .Values.mariadb.auth.existingSecret }}
-              key: mariadb-password
+              secretKeyRef:
+                name: {{ .Values.mariadb.auth.existingSecret }}
+                key: mariadb-password
           - name: _APP_DB_ROOT_PASS
             valueFrom:
-            secretKeyRef:
-              name: {{ .Values.mariadb.auth.existingSecret }}
-              key: mariadb-root-password
+              secretKeyRef:
+                name: {{ .Values.mariadb.auth.existingSecret }}
+                key: mariadb-root-password
         {{- end }}
         envFrom:
         - configMapRef:
@@ -72,12 +76,16 @@ spec:
 {{ toYaml .Values.appwrite.resources | indent 10 }}
         volumeMounts:
         {{- range $k, $v := .Values.appwrite.volumes }}
+        {{- if ne $k "coreAffinity" }}
         - mountPath: /storage/{{ $k }}
           name: {{ $k }}
         {{- end }}
+        {{- end }}
       volumes:
         {{- range $k, $v := .Values.appwrite.volumes }}
+        {{- if ne $k "coreAffinity" }}
         - name: {{ $k }}
           persistentVolumeClaim:
             claimName: "{{ include "appwrite.fullname" $ }}-{{ $k }}"
+        {{- end }}
         {{- end }}

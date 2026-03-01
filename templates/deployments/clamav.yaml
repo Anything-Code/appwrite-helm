@@ -13,6 +13,8 @@ spec:
 {{ include "appwrite.selectorLabels" $ | indent 6 }}
       app.kubernetes.io/component: clamav
   replicas: 1
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:

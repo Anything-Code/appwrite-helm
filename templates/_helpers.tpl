@@ -134,13 +134,78 @@ startupProbe:
 
 # Place it to initContainers section
 {{- define "influxdbCheck" -}}
-
+- name: wait-for-influxdb
+  image: busybox:1.36
+  command:
+    - sh
+    - -c
+    - |
+      echo "Waiting for InfluxDB at {{ .Values.influxdb.host }}:{{ .Values.influxdb.port }}..."
+      until nc -z {{ .Values.influxdb.host }} {{ .Values.influxdb.port }}; do
+        echo "InfluxDB is unavailable - sleeping"
+        sleep 2
+      done
+      echo "InfluxDB is up!"
 {{- end }}
 
 {{- define "dbCheck" -}}
-
+- name: wait-for-mariadb
+  image: busybox:1.36
+  command:
+    - sh
+    - -c
+    - |
+      echo "Waiting for MariaDB at {{ include "appwrite.fullname" . }}-mariadb:3306..."
+      until nc -z {{ include "appwrite.fullname" . }}-mariadb 3306; do
+        echo "MariaDB is unavailable - sleeping"
+        sleep 2
+      done
+      echo "MariaDB is up!"
 {{- end }}
 
 {{- define "redisCheck" -}}
+- name: wait-for-redis
+  image: busybox:1.36
+  command:
+    - sh
+    - -c
+    - |
+      echo "Waiting for Redis at {{ include "appwrite.fullname" . }}-redis-master:6379..."
+      until nc -z {{ include "appwrite.fullname" . }}-redis-master 6379; do
+        echo "Redis is unavailable - sleeping"
+        sleep 2
+      done
+      echo "Redis is up!"
+{{- end }}
 
+{{- define "coreCheck" -}}
+- name: wait-for-core
+  image: busybox:1.36
+  command:
+    - sh
+    - -c
+    - |
+      echo "Waiting for Appwrite Core at {{ include "appwrite.fullname" . }}-core:80..."
+      until nc -z {{ include "appwrite.fullname" . }}-core 80; do
+        echo "Appwrite Core is unavailable - sleeping"
+        sleep 2
+      done
+      echo "Appwrite Core is up!"
+{{- end }}
+
+{{/*
+Pod affinity to colocate with appwrite-core (for RWO volumes).
+Only rendered when appwrite.volumes.coreAffinity.enabled is true.
+*/}}
+{{- define "appwrite.coreAffinity" -}}
+{{- if .Values.appwrite.volumes.coreAffinity.enabled }}
+affinity:
+  podAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchLabels:
+          {{- include "appwrite.selectorLabels" . | nindent 10 }}
+          app.kubernetes.io/component: core
+      topologyKey: kubernetes.io/hostname
+{{- end }}
 {{- end }}
