@@ -19,21 +19,10 @@ spec:
 {{ include "appwrite.labels" $ | indent 8 }}
         app.kubernetes.io/component: clamav
     spec:
+      securityContext:
+        fsGroup: 101
       containers:
-      - name: freshclam
-        image: "{{ .Values.clamav.image.repository }}:{{ .Values.clamav.image.tag }}"
-        {{- with .Values.clamav.image.pullPolicy }}
-        imagePullPolicy: {{ . }}
-        {{- end }}
-        env:
-        - name: MODE
-          value: "freshclam"
-        resources:
-{{ toYaml .Values.clamav.freshclam.resources | indent 10 }}
-        volumeMounts:
-        - mountPath: /var/lib/clamav
-          name: data
-      - name: clamd
+      - name: clamav
         image: "{{ .Values.clamav.image.repository }}:{{ .Values.clamav.image.tag }}"
         {{- with .Values.clamav.image.pullPolicy }}
         imagePullPolicy: {{ . }}
@@ -41,11 +30,8 @@ spec:
         ports:
         - containerPort: 3310
           name: clamav
-        env:
-        - name: MODE
-          value: "clamd"
         resources:
-{{ toYaml .Values.clamav.clamd.resources | indent 10 }}
+{{ toYaml .Values.clamav.resources | indent 10 }}
         volumeMounts:
         - mountPath: /var/lib/clamav
           name: data
