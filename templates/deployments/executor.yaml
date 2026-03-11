@@ -1,0 +1,131 @@
+{{- if .Values.executor.enabled }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: "{{ include "appwrite.fullname" $ }}-executor"
+  labels:
+{{ include "appwrite.labels" $ | indent 4 }}
+    app.kubernetes.io/component: executor
+spec:
+  selector:
+    matchLabels:
+{{ include "appwrite.selectorLabels" $ | indent 6 }}
+      app.kubernetes.io/component: executor
+  template:
+    metadata:
+      labels:
+{{ include "appwrite.labels" $ | indent 8 }}
+        app.kubernetes.io/component: executor
+      annotations:
+        checksum/secrets-executor: {{ include (print $.Template.BasePath "/secrets/executor.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.executor.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.executor.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: openruntimes-executor
+        image: "{{ .Values.executor.image.repository }}:{{ .Values.executor.image.tag }}"
+        {{- with .Values.executor.image.pullPolicy }}
+        imagePullPolicy: {{ . }}
+        {{- end }}
+        ports:
+        - containerPort: 80
+          name: http
+        env:
+          - name: OPR_EXECUTOR_INACTIVE_TRESHOLD
+            value: {{ .Values.executor.inactiveThreshold | default "60" | quote }}
+          - name: OPR_EXECUTOR_MAINTENANCE_INTERVAL
+            value: {{ .Values.executor.maintenanceInterval | default "60" | quote }}
+          - name: OPR_EXECUTOR_NETWORK
+            value: {{ .Values.executor.runtimesNetwork | default "appwrite_runtimes" | quote }}
+          - name: OPR_EXECUTOR_ENV
+            value: {{ .Values.appwrite.env | quote }}
+          - name: OPR_EXECUTOR_RUNTIMES
+            value: {{ include "array.join" .Values.functions.runtimes }}
+          - name: OPR_EXECUTOR_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "appwrite.fullname" $ }}-executor-env
+                key: OPR_EXECUTOR_SECRET
+          - name: OPR_EXECUTOR_RUNTIME_VERSIONS
+            value: "v5"
+          - name: OPR_EXECUTOR_LOGGING_CONFIG
+            value: {{ .Values.executor.loggingConfig | default "" | quote }}
+          - name: OPR_EXECUTOR_STORAGE_DEVICE
+            value: {{ .Values.storage.device | lower | quote }}
+          {{- if .Values.executor.dockerHub.username }}
+          - name: OPR_EXECUTOR_DOCKER_HUB_USERNAME
+            value: {{ .Values.executor.dockerHub.username | quote }}
+          - name: OPR_EXECUTOR_DOCKER_HUB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "appwrite.fullname" $ }}-executor-env
+                key: OPR_EXECUTOR_DOCKER_HUB_PASSWORD
+          {{- end }}
+          {{- if ne (lower .Values.storage.device) "local" }}
+          - name: {{ printf "OPR_EXECUTOR_STORAGE_%s_ACCESS_KEY" .Values.storage.device | upper }}
+            value: {{ .Values.storage.bucket.accessKey | quote }}
+          - name: {{ printf "OPR_EXECUTOR_STORAGE_%s_SECRET" .Values.storage.device | upper }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "appwrite.fullname" $ }}-env
+                key: {{ printf "_APP_STORAGE_%s_SECRET" .Values.storage.device | upper }}
+          - name: {{ printf "OPR_EXECUTOR_STORAGE_%s_REGION" .Values.storage.device | upper }}
+            value: {{ .Values.storage.bucket.region | quote }}
+          - name: {{ printf "OPR_EXECUTOR_STORAGE_%s_BUCKET" .Values.storage.device | upper }}
+            value: {{ .Values.storage.bucket.name | quote }}
+          {{- if .Values.storage.bucket.endpoint }}
+          - name: {{ printf "OPR_EXECUTOR_STORAGE_%s_ENDPOINT" .Values.storage.device | upper }}
+            value: {{ .Values.storage.bucket.endpoint | quote }}
+          {{- end }}
+          {{- end }}
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run/docker.sock
+        - name: tmp
+          mountPath: /tmp
+        {{- if eq (lower .Values.storage.device) "local" }}
+        - name: builds
+          mountPath: /storage/builds
+        - name: functions
+          mountPath: /storage/functions
+        - name: sites
+          mountPath: /storage/sites
+        {{- end }}
+        {{- with .Values.executor.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      volumes:
+      - name: docker-sock
+        hostPath:
+          path: {{ .Values.executor.dockerSocketPath | default "/var/run/docker.sock" }}
+          type: Socket
+      - name: tmp
+        hostPath:
+          path: /tmp
+          type: Directory
+      {{- if eq (lower .Values.storage.device) "local" }}
+      # For local storage, we need hostPath volumes that are shared between executor and runtimes
+      - name: builds
+        hostPath:
+          path: {{ .Values.executor.hostPaths.builds | default "/var/appwrite/builds" }}
+          type: DirectoryOrCreate
+      - name: functions
+        hostPath:
+          path: {{ .Values.executor.hostPaths.functions | default "/var/appwrite/functions" }}
+          type: DirectoryOrCreate
+      - name: sites
+        hostPath:
+          path: {{ .Values.executor.hostPaths.sites | default "/var/appwrite/sites" }}
+          type: DirectoryOrCreate
+      {{- end }}
+{{- end }}

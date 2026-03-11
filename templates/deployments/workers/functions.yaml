@@ -62,6 +62,10 @@ spec:
         {{- end }}
         - secretRef:
             name: {{ include "appwrite.fullname" $ }}-redis-env
+        {{- if .Values.executor.enabled }}
+        - secretRef:
+            name: {{ include "appwrite.fullname" $ }}-executor-env
+        {{- end }}
         volumeMounts:
         - mountPath: /storage/functions
           name: data

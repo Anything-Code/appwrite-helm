@@ -1,0 +1,21 @@
+{{- if .Values.executor.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ include "appwrite.fullname" $ }}-executor"
+  labels:
+{{ include "appwrite.labels" $ | indent 4 }}
+    app.kubernetes.io/component: executor
+spec:
+  # Headless service - each pod gets its own DNS entry
+  # Workers will connect to any available executor
+  clusterIP: None
+  ports:
+    - port: 80
+      targetPort: 80
+      name: http
+  selector:
+{{ include "appwrite.selectorLabels" $ | indent 4 }}
+    app.kubernetes.io/component: executor
+{{- end }}

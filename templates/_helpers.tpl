@@ -107,24 +107,21 @@ startupProbe:
 
 {{- define "probeHttp" -}}
 livenessProbe:
-  httpGet:
-    path: /health
+  tcpSocket:
     port: http
   initialDelaySeconds: 5
   periodSeconds: 10
   timeoutSeconds: 3
   failureThreshold: 3
 readinessProbe:
-  httpGet:
-    path: /ping
+  tcpSocket:
     port: http
   initialDelaySeconds: 15
   periodSeconds: 5
   timeoutSeconds: 3
   failureThreshold: 3
 startupProbe:
-  httpGet:
-    path: /ping
+  tcpSocket:
     port: http
   initialDelaySeconds: 15
   periodSeconds: 5
@@ -208,4 +205,23 @@ affinity:
           app.kubernetes.io/component: core
       topologyKey: kubernetes.io/hostname
 {{- end }}
+{{- end }}
+
+{{/*
+Executor secret - generated once and reused.
+Uses existing secret if found, otherwise uses values or generates new.
+*/}}
+{{- define "appwrite.executorSecret" -}}
+{{- if .Values.executor.secret -}}
+{{- .Values.executor.secret -}}
+{{- else -}}
+{{- $secretObj := (lookup "v1" "Secret" (include "appwrite.namespace" .) (printf "%s-executor-env" (include "appwrite.fullname" .))) | default dict }}
+{{- $secretData := (get $secretObj "data") | default dict }}
+{{- $existingSecret := (get $secretData "OPR_EXECUTOR_SECRET") | default "" | b64dec }}
+{{- if $existingSecret -}}
+{{- $existingSecret -}}
+{{- else -}}
+{{- randAlphaNum 32 -}}
+{{- end -}}
+{{- end -}}
 {{- end }}

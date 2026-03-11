@@ -45,7 +45,7 @@ spec:
           name: http
         env:
           - name: _APP_WORKER_PER_CORE
-            value: {{ .Values.appwrite.workerPerCore | quote }}
+            value: {{ .Values.appwrite.workersPerCore | quote }}
         {{- if .Values.mariadb.auth.existingSecret }}
           - name: _APP_DB_PASS
             valueFrom:
@@ -71,6 +71,10 @@ spec:
             name: {{ include "appwrite.fullname" $ }}-redis-env
         - secretRef:
             name: {{ include "appwrite.fullname" $ }}-smtp-env
+        {{- if .Values.executor.enabled }}
+        - secretRef:
+            name: {{ include "appwrite.fullname" $ }}-executor-env
+        {{- end }}
         {{- include "probeHttp" $ | nindent 8 }}
         resources:
 {{ toYaml .Values.appwrite.resources | indent 10 }}

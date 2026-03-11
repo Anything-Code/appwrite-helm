@@ -41,7 +41,7 @@ spec:
           name: http
         env:
           - name: _APP_WORKER_PER_CORE
-            value: {{ .Values.realtime.workerPerCore | quote }}
+            value: {{ .Values.realtime.workersPerCore | quote }}
         {{- if .Values.mariadb.auth.existingSecret }}
           - name: _APP_DB_PASS
             valueFrom:

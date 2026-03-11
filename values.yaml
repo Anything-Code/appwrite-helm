@@ -45,6 +45,10 @@ appwrite:
     abuse: true
     # -- Force SSL
     forceHttps: false
+    # -- Router protection (for sites/functions)
+    routerProtection: false
+    # -- Router force HTTPS
+    routerForceHttps: false
   console:
     whitelist:
       # -- This option allows you to disable the creation of new users on the Appwrite console.
@@ -56,6 +60,10 @@ appwrite:
       # -- This last option allows you to limit creation of users in Appwrite console for users sharing the same set of IP addresses.
       # This option is very useful for team working with a VPN service or a company IP.
       ips: []
+    # -- Enable session alerts for console users (login notifications)
+    sessionAlerts: false
+    # -- List of hostnames allowed to access the console (leave empty to allow all)
+    hostnames: []
   system:
     email:
       # -- This is the sender name value that will appear on email messages sent to developers from the Appwrite console.
@@ -71,6 +79,17 @@ appwrite:
     responseFormat: ""
     # -- This is the email address used to issue SSL certificates for custom domains or the user agent in your webhooks payload.
     securityAddress: certs@appwrite.io
+    # -- Enable email security alerts
+    emailSecurity: false
+  # -- Logging configuration (e.g., for external logging services)
+  loggingConfig: ""
+  # -- Minimum size in bytes for compression
+  compressionMinSizeBytes: 1024
+  # -- GraphQL settings
+  graphql:
+    maxBatchSize: 10
+    maxComplexity: 250
+    maxDepth: 3
   usageStats: 
     # -- This variable allows you to disable the collection and displaying of usage stats. 
     # You will need an external InfluxDB instance in the `monitoring` namespace.
@@ -80,26 +99,28 @@ appwrite:
     interval: 30
 
   # -- Internal Worker per core for the API containers. Can be configured to optimize performance.
-  workersPerCore: 6
+  # Note: Each core spawns this many workers. On an 8-core machine with workersPerCore=6, you get 48 workers.
+  # Lower values use less memory. Increase for high-traffic deployments.
+  workersPerCore: 2
 
   ingress:
     # -- Core API Ingress
     enabled: true
     # -- Core ingress annotation
-    annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-prod
+    annotations: {}
     tls:
       # -- Core ingress TLS enabled
       enabled: false
 
   # -- Resources for the main appwrite pods
+  # Note: Memory needs scale with workersPerCore. With workersPerCore=2, 512Mi-1Gi is typically sufficient.
   resources:
     requests:
-      memory: 128Mi
-      cpu: 100m
-    limits:
       memory: 256Mi
       cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
 
   volumes:
     # -- Enable pod affinity to colocate worker pods with core on the same node.
@@ -121,6 +142,15 @@ appwrite:
     functions:
       # -- Functions volume size
       size: 1Gi
+    builds:
+      # -- Builds volume size (for function/site builds)
+      size: 2Gi
+    sites:
+      # -- Sites volume size (for static site hosting)
+      size: 1Gi
+    imports:
+      # -- Imports volume size (for migrations)
+      size: 1Gi
 
 realtime:
   # replicaCount -- How many replicas of realtime should be deployed, it is ignored if autoscaling is enabled
@@ -134,14 +164,13 @@ realtime:
     # targetMemoryUtilizationPercentage: 80
 
   # -- Internal Worker per core for the Realtime containers. Can be configured to optimize performance.
-  workersPerCore: 6
+  workersPerCore: 2
 
   ingress:
     # -- Real-time API ingress
     enabled: true
     # -- Real-time ingress annotation
-    annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-prod
+    annotations: {}
     tls:
       # -- Real-time ingress TLS enabled
       enabled: false
@@ -162,6 +191,26 @@ schedule:
 maintenance:
   # -- Number of maintenance pods
   replicaCount: 1
+  # -- Maintenance interval in seconds (default: 24 hours)
+  interval: 86400
+  # -- Delay before starting maintenance in seconds
+  delay: 0
+  # -- Retention settings (in seconds)
+  retention:
+    # -- Execution logs retention (default: 14 days)
+    execution: 1209600
+    # -- Cache retention (default: 30 days)
+    cache: 2592000
+    # -- Abuse logs retention (default: 24 hours)
+    abuse: 86400
+    # -- Audit logs retention (default: 14 days)
+    audit: 1209600
+    # -- Console audit logs retention (default: 14 days)
+    auditConsole: 1209600
+    # -- Hourly usage stats retention (default: 100 days)
+    usageHourly: 8640000
+    # -- Schedules retention (default: 24 hours)
+    schedules: 86400
 
 influxdb:
   # -- InfluxDB hostname
@@ -197,6 +246,8 @@ redis:
   auth:
     enabled: false
     sentinel: false
+    # -- Redis username (leave empty if not using ACL)
+    username: ""
     password: ""
     existingSecret: ""
     existingSecretPasswordKey: ""
@@ -309,6 +360,8 @@ smtp:
 storage:
   # -- Maximum file size allowed for file upload. The default value is 30MB limitation.
   uploadLimit: 30Mi
+  # -- Maximum preview file size in bytes (default: 20MB)
+  previewLimit: 20000000
   # -- Select default storage device. The default value is 'local'. 
   # List of supported adapters are 'local', 's3', 'dospaces', 'backblaze', 'linode' and 'wasabi'.
   device: local
@@ -321,6 +374,8 @@ storage:
     region: eu-west-1
     # -- Bucket name
     name: ""
+    # -- Bucket endpoint (S3-compatible only)
+    endpoint: ""
 
 clamav:
   # -- This variable allows you to disable the internal anti-virus (ClamAV) scans.
@@ -370,3 +425,60 @@ functions:
     - java-16.0
     - dart-2.14
     - dotnet-5.0
+  # -- Domain for cloud functions (e.g., functions.example.com)
+  domain: ""
+
+# OpenRuntimes Executor - runs cloud functions via Docker
+# Requires Docker installed on nodes alongside containerd
+executor:
+  # -- Enable the executor DaemonSet
+  enabled: true
+  image:
+    # -- Executor image repository
+    repository: openruntimes/executor
+    # -- Executor image tag
+    tag: "0.7.22"
+    # -- Image pull policy
+    pullPolicy: ""
+  # -- Shared secret between Appwrite and the executor (auto-generated if empty)
+  secret: ""
+  # -- Path to Docker socket on host nodes
+  dockerSocketPath: "/var/run/docker.sock"
+  # -- Docker network for function runtimes
+  runtimesNetwork: "appwrite_runtimes"
+  # -- Seconds before inactive containers are removed
+  inactiveThreshold: 60
+  # -- Maintenance check interval in seconds
+  maintenanceInterval: 60
+  # -- Logging configuration
+  loggingConfig: ""
+  # -- Docker Hub credentials (optional, for rate limit bypass)
+  dockerHub:
+    username: ""
+    password: ""
+  # -- Host paths for local storage (used by executor and runtime containers)
+  hostPaths:
+    builds: "/var/appwrite/builds"
+    functions: "/var/appwrite/functions"
+    sites: "/var/appwrite/sites"
+  # -- Node selector for executor pods
+  nodeSelector: {}
+  # -- Tolerations for executor pods
+  tolerations: []
+  # -- Resources for executor pods
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+# Sites (static site hosting) configuration
+sites:
+  # -- Available site runtimes
+  runtimes: []
+  # -- Domain for sites
+  domain: ""
+  # -- Site build timeout in seconds
+  timeout: 900
