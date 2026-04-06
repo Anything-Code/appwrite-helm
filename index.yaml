@@ -1,0 +1,26 @@
+apiVersion: v1
+entries:
+  appwrite:
+  - apiVersion: v2
+    appVersion: 1.9.0
+    created: "2026-04-06T03:58:36.053848333Z"
+    dependencies:
+    - condition: mariadb.enabled
+      name: mariadb
+      repository: https://charts.bitnami.com/bitnami
+      version: 11.5.5
+    - condition: mongodb.enabled
+      name: mongodb
+      repository: https://charts.bitnami.com/bitnami
+      version: 15.1.2
+    - name: redis
+      repository: https://charts.bitnami.com/bitnami
+      version: 17.9.0
+    description: Appwrite Helm chart
+    digest: dc4f8a9e1c8fb52811b737d99d1d77dab8f044cc16181da15e14ab4fa0ba8449
+    name: appwrite
+    type: application
+    urls:
+    - https://github.com/Anything-Code/appwrite-helm/releases/download/appwrite-1.2.0/appwrite-1.2.0.tgz
+    version: 1.2.0
+generated: "2026-04-06T03:58:36.053856611Z"
