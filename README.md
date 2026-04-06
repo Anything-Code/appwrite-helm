@@ -1,6 +1,8 @@
 # Appwrite Helm Chart
 
-![Version: 1.3.1](https://img.shields.io/badge/Version-1.3.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.9.0](https://img.shields.io/badge/AppVersion-1.9.0-informational?style=flat-square)
+![Version: 1.3.2](https://img.shields.io/badge/Version-1.3.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.9.0](https://img.shields.io/badge/AppVersion-1.9.0-informational?style=flat-square)
+
+[![GitHub](https://img.shields.io/badge/GitHub-Anything--Code%2Fappwrite--helm-blue?style=flat-square&logo=github)](https://github.com/Anything-Code/appwrite-helm) [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/appwrite-helm&style=flat-square)](https://artifacthub.io/packages/helm/appwrite-helm/appwrite)
 
 A Helm chart for deploying [Appwrite](https://appwrite.io) on Kubernetes. Supports MariaDB or MongoDB as the database backend, Redis for caching/queues, and the OpenRuntimes executor for Cloud Functions and Sites.
 
