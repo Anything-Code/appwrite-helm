@@ -1,0 +1,36 @@
+{{- if and .Values.sites.ingress.enabled (ne (.Values.sites.domain | default "disabled") "disabled") (ne .Values.sites.domain "") }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "appwrite.fullname" $ }}-sites
+  labels:
+{{ include "appwrite.labels" $ | indent 4 }}
+{{- if .Values.sites.ingress.annotations }}
+  annotations:
+{{- toYaml .Values.sites.ingress.annotations | nindent 4 }}
+{{- end }}
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: "*.{{ .Values.sites.domain }}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "appwrite.fullname" $ }}-core
+                port:
+                  number: 80
+  {{- if .Values.sites.ingress.tls.enabled }}
+  tls:
+    - hosts:
+      - "*.{{ .Values.sites.domain }}"
+      {{- if .Values.sites.ingress.tls.secretName }}
+      secretName: {{ .Values.sites.ingress.tls.secretName }}
+      {{- else }}
+      secretName: {{ include "appwrite.fullname" $ }}-sites-tls
+      {{- end }}
+  {{- end -}}
+{{- end -}}

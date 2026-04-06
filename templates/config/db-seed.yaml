@@ -1,4 +1,4 @@
-{{ if and .Values.initdbScriptsConfigMap (eq .Values.initdbScriptsConfigMap "appwrite-db-seed") }}
+{{ if and (eq .Values.database.type "mariadb") .Values.initdbScriptsConfigMap (eq .Values.initdbScriptsConfigMap "appwrite-db-seed") }}
 ---
 apiVersion: v1
 kind: ConfigMap

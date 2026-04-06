@@ -32,6 +32,8 @@ appwrite:
 
   # -- Server Environment
   env: development
+  # -- Appwrite edition (leave empty for default)
+  edition: ""
   # -- Locale
   locale: en
   # -- This is your server private key (as base64 string) that is used to encrypt all sensitive data on your server.
@@ -45,6 +47,10 @@ appwrite:
     abuse: true
     # -- Force SSL
     forceHttps: false
+    # -- Router protection (for sites/functions)
+    routerProtection: false
+    # -- Router force HTTPS
+    routerForceHttps: false
   console:
     whitelist:
       # -- This option allows you to disable the creation of new users on the Appwrite console.
@@ -56,6 +62,14 @@ appwrite:
       # -- This last option allows you to limit creation of users in Appwrite console for users sharing the same set of IP addresses.
       # This option is very useful for team working with a VPN service or a company IP.
       ips: []
+    # -- Enable session alerts for console users (login notifications)
+    sessionAlerts: false
+    # -- List of hostnames allowed to access the console (leave empty to allow all)
+    hostnames: []
+    # -- Console domain (separate from API domain, leave empty to use appwrite.domain)
+    domain: ""
+    # -- Comma-separated list of country codes to deny console access
+    countriesDenylist: ""
   system:
     email:
       # -- This is the sender name value that will appear on email messages sent to developers from the Appwrite console.
@@ -71,35 +85,59 @@ appwrite:
     responseFormat: ""
     # -- This is the email address used to issue SSL certificates for custom domains or the user agent in your webhooks payload.
     securityAddress: certs@appwrite.io
+    # -- Team email address for internal notifications
+    teamEmail: ""
+    # -- Enable email security alerts
+    emailSecurity: false
+  # -- Logging configuration (e.g., for external logging services)
+  loggingConfig: ""
+  # -- Realtime-specific logging configuration
+  loggingConfigRealtime: ""
+  # -- Experimental logging provider
+  experimentLoggingProvider: ""
+  # -- Experimental logging config
+  experimentLoggingConfig: ""
+  # -- Trusted headers (e.g., for reverse proxy setups)
+  trustedHeaders: ""
+  # -- Custom domain deny list
+  customDomainDenyList: ""
+  # -- Minimum size in bytes for compression
+  compressionMinSizeBytes: 1024
+  # -- GraphQL settings
+  graphql:
+    maxBatchSize: 10
+    maxComplexity: 250
+    maxDepth: 3
   usageStats: 
-    # -- This variable allows you to disable the collection and displaying of usage stats. 
-    # You will need an external InfluxDB instance in the `monitoring` namespace.
-    # When disabled, the Usage and Telegraf containers will be turned off.
+    # -- This variable allows you to disable the collection and displaying of usage stats.
+    # When disabled, the stats workers will be turned off.
     enabled: false
     # -- The stats aggregation interval in seconds
-    interval: 30
+    aggregationInterval: 30
 
   # -- Internal Worker per core for the API containers. Can be configured to optimize performance.
-  workersPerCore: 6
+  # Note: Each core spawns this many workers. On an 8-core machine with workersPerCore=6, you get 48 workers.
+  # Lower values use less memory. Increase for high-traffic deployments.
+  workersPerCore: 2
 
   ingress:
     # -- Core API Ingress
     enabled: true
     # -- Core ingress annotation
-    annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-prod
+    annotations: {}
     tls:
       # -- Core ingress TLS enabled
       enabled: false
 
   # -- Resources for the main appwrite pods
+  # Note: Memory needs scale with workersPerCore. With workersPerCore=2, 512Mi-1Gi is typically sufficient.
   resources:
     requests:
-      memory: 128Mi
-      cpu: 100m
-    limits:
       memory: 256Mi
       cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
 
   volumes:
     # -- Enable pod affinity to colocate worker pods with core on the same node.
@@ -121,6 +159,15 @@ appwrite:
     functions:
       # -- Functions volume size
       size: 1Gi
+    builds:
+      # -- Builds volume size (for function/site builds)
+      size: 2Gi
+    sites:
+      # -- Sites volume size (for static site hosting)
+      size: 1Gi
+    imports:
+      # -- Imports volume size (for migrations)
+      size: 1Gi
 
 realtime:
   # replicaCount -- How many replicas of realtime should be deployed, it is ignored if autoscaling is enabled
@@ -134,14 +181,13 @@ realtime:
     # targetMemoryUtilizationPercentage: 80
 
   # -- Internal Worker per core for the Realtime containers. Can be configured to optimize performance.
-  workersPerCore: 6
+  workersPerCore: 2
 
   ingress:
     # -- Real-time API ingress
     enabled: true
     # -- Real-time ingress annotation
-    annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-prod
+    annotations: {}
     tls:
       # -- Real-time ingress TLS enabled
       enabled: false
@@ -155,6 +201,35 @@ realtime:
       memory: 256Mi
       cpu: 250m
 
+console:
+  # -- Enable the Appwrite Console UI
+  enabled: true
+  image:
+    # -- Console image repository
+    repository: appwrite/console
+    # -- Console image tag
+    tag: "7.5.7"
+    # -- Image pull policy
+    pullPolicy: ""
+  # -- Number of console replicas
+  replicaCount: 1
+  ingress:
+    # -- Console ingress (shares domain with core, serves /console path)
+    enabled: true
+    # -- Console ingress annotations
+    annotations: {}
+    tls:
+      # -- Console ingress TLS enabled
+      enabled: false
+  # -- Resources for the console pods
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 50m
+    limits:
+      memory: 128Mi
+      cpu: 100m
+
 schedule:
   # -- Number of schedule pods
   replicaCount: 1
@@ -162,28 +237,36 @@ schedule:
 maintenance:
   # -- Number of maintenance pods
   replicaCount: 1
+  # -- Maintenance interval in seconds (default: 24 hours)
+  interval: 86400
+  # -- Delay before starting maintenance in seconds
+  delay: 0
+  # -- Start time for maintenance window (cron-like, leave empty for immediate)
+  startTime: ""
+  # -- Retention settings (in seconds)
+  retention:
+    # -- Execution logs retention (default: 14 days)
+    execution: 1209600
+    # -- Cache retention (default: 30 days)
+    cache: 2592000
+    # -- Abuse logs retention (default: 24 hours)
+    abuse: 86400
+    # -- Audit logs retention (default: 14 days)
+    audit: 1209600
+    # -- Console audit logs retention (default: 14 days)
+    auditConsole: 1209600
+    # -- Hourly usage stats retention (default: 100 days)
+    usageHourly: 8640000
+    # -- Schedules retention (default: 24 hours)
+    schedules: 86400
 
-influxdb:
-  # -- InfluxDB hostname
-  host: influxdb.monitoring.svc
-  # -- InfluxDB port
-  port: 8086
+# -- Stats resources settings
+statsResources:
+  # -- Interval for stats resource collection in seconds
+  interval: ""
 
 ## Chart dependencies
 ##
-
-# -- See https://artifacthub.io/packages/helm/influxdata/telegraf
-telegraf:
-  image: 
-    repo: appwrite/telegraf
-    tag: 1.4.0
-  resources:
-    requests:
-      memory: 128Mi
-      cpu: 100m
-    limits:
-      memory: 256Mi
-      cpu: 250m
 
 # -- See https://artifacthub.io/packages/helm/bitnami/redis
 redis:
@@ -197,6 +280,8 @@ redis:
   auth:
     enabled: false
     sentinel: false
+    # -- Redis username (leave empty if not using ACL)
+    username: ""
     password: ""
     existingSecret: ""
     existingSecretPasswordKey: ""
@@ -215,6 +300,8 @@ redis:
 
 # -- See https://artifacthub.io/packages/helm/bitnami/mariadb
 mariadb:
+  # -- Enable MariaDB subchart (set to false when using mongodb)
+  enabled: true
   # initdbScriptsConfigMap: appwrite-db-seed
   image:
     registry: docker.io
@@ -286,12 +373,46 @@ mariadb:
       # -- MariaDB storage size
       size: 2Gi
 
-sms:
-  # -- Provider used for delivering SMS for Phone authentication. Use the following format: `sms://[USER]:[SECRET]@[PROVIDER]`.
-  #Available providers are twilio, text-magic, telesign, msg91, and vonage.
-  provider: ""
-  # -- Phone number used for sending out messages. Must start with a leading '+' and maximum of 15 digits without spaces (+123456789).
-  from: ""
+# -- See https://artifacthub.io/packages/helm/bitnami/mongodb
+mongodb:
+  # -- Enable MongoDB subchart (set to true when using mongodb as database.type)
+  enabled: false
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/mongodb
+    tag: "8.0.13"
+  auth:
+    enabled: true
+    # -- MongoDB root password
+    rootPassword: appwrite
+    # -- MongoDB appwrite username (list format for Bitnami chart)
+    usernames:
+      - appwrite
+    # -- MongoDB appwrite password (list format for Bitnami chart)
+    passwords:
+      - appwrite
+    # -- MongoDB appwrite database (list format for Bitnami chart)
+    databases:
+      - appwrite
+    # -- Use this if you'd like to use a secret object instead.
+    existingSecret: ""
+  volumePermissions:
+    enabled: true
+    image:
+      registry: docker.io
+      repository: bitnamilegacy/os-shell
+      tag: 12-debian-12-r51
+      pullPolicy: IfNotPresent
+  persistence:
+    # -- MongoDB storage size
+    size: 2Gi
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
 
 smtp:
   # -- SMTP server host name address. Use an empty string to disable all mail sending from the server. 
@@ -309,6 +430,8 @@ smtp:
 storage:
   # -- Maximum file size allowed for file upload. The default value is 30MB limitation.
   uploadLimit: 30Mi
+  # -- Maximum preview file size in bytes (default: 20MB)
+  previewLimit: 20000000
   # -- Select default storage device. The default value is 'local'. 
   # List of supported adapters are 'local', 's3', 'dospaces', 'backblaze', 'linode' and 'wasabi'.
   device: local
@@ -321,6 +444,8 @@ storage:
     region: eu-west-1
     # -- Bucket name
     name: ""
+    # -- Bucket endpoint (S3-compatible only)
+    endpoint: ""
 
 clamav:
   # -- This variable allows you to disable the internal anti-virus (ClamAV) scans.
@@ -354,13 +479,13 @@ functions:
   # Please note that setting a value higher than available cores will result in a function error, which might result in an error. 
   # When empty, CPU limit will be disabled.
   cpus: 1
-  # -- The maximum amount of memory a single cloud function is allowed to use in megabytes. 
+  # -- The maximum amount of memory a single cloud function is allowed to use in megabytes (integer).
   # When empty, memory limit will be disabled.
-  memory: 256Mb
-  # -- The maximum amount of swap memory a single cloud function is allowed to use in megabytes. 
+  memory: 256
+  # -- The maximum amount of swap memory a single cloud function is allowed to use in megabytes (integer).
   # The default value is empty.
   # When empty, swap memory limit will be disabled.
-  swap: 256Mb
+  swap: 256
   # -- This option allows you to limit the available environments for cloud functions.
   runtimes:
     - node-16.0
@@ -370,3 +495,146 @@ functions:
     - java-16.0
     - dart-2.14
     - dotnet-5.0
+  # -- Domain for cloud functions (e.g., functions.example.com)
+  domain: ""
+  # -- Abuse limit for function creation
+  creationAbuseLimit: ""
+
+# Compute specification limits (system-wide maximums for function/site specs)
+compute:
+  # -- Maximum CPU cores allowed for any single specification.
+  # This limits which runtime specifications are available.
+  # Must be >= the largest spec you want to allow (e.g., 8 for s-8vcpu-8gb).
+  maxCpus: 8
+  # -- Maximum memory (MB) allowed for any single specification.
+  # Must be >= the largest spec you want to allow (e.g., 8192 for s-8vcpu-8gb).
+  maxMemory: 8192
+  # -- Build timeout in seconds
+  buildTimeout: 900
+  # -- Maximum size limit for compute payloads in bytes
+  sizeLimit: 30000000
+
+# OpenRuntimes Executor - runs cloud functions via Docker
+# Requires Docker installed on nodes alongside containerd
+executor:
+  # -- Enable the executor DaemonSet
+  enabled: true
+  image:
+    # -- Executor image repository
+    repository: openruntimes/executor
+    # -- Executor image tag
+    tag: "0.11.4"
+    # -- Image pull policy
+    pullPolicy: ""
+  # -- Shared secret between Appwrite and the executor (auto-generated if empty)
+  secret: ""
+  # -- Path to Docker socket on host nodes
+  dockerSocketPath: "/var/run/docker.sock"
+  # -- Docker network for function runtimes
+  runtimesNetwork: "appwrite_runtimes"
+  # -- Seconds before inactive containers are removed
+  inactiveThreshold: 60
+  # -- Maintenance check interval in seconds
+  maintenanceInterval: 60
+  # -- Logging configuration
+  loggingConfig: ""
+  # -- Enable image pull for executor (default: enabled)
+  imagePull: "enabled"
+  # -- Docker Hub credentials (optional, for rate limit bypass)
+  dockerHub:
+    username: ""
+    password: ""
+  # -- Host paths for local storage (used by executor and runtime containers)
+  hostPaths:
+    builds: "/var/appwrite/builds"
+    functions: "/var/appwrite/functions"
+    sites: "/var/appwrite/sites"
+  # -- Node selector for executor pods
+  nodeSelector: {}
+  # -- Tolerations for executor pods
+  tolerations: []
+  # -- Resources for executor pods
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+# Sites (static site hosting) configuration
+sites:
+  # -- Available site runtimes
+  runtimes: []
+  # -- Domain for sites (e.g., "sites.example.com"). Wildcard *.sites.example.com will route to core.
+  # Set to "" or "disabled" to disable sites.
+  domain: ""
+  # -- Site build timeout in seconds
+  timeout: 900
+  ingress:
+    # -- Enable wildcard ingress for sites
+    enabled: false
+    # -- Sites ingress annotations (you likely need cert-manager for wildcard TLS)
+    annotations: {}
+    tls:
+      # -- Sites ingress TLS enabled (requires wildcard certificate)
+      enabled: false
+      # -- Secret name for TLS certificate (if using pre-provisioned wildcard cert)
+      secretName: ""
+
+# Database configuration
+database:
+  # -- Database backend: "mariadb" or "mongodb"
+  # When set to "mariadb", the MariaDB subchart is deployed and Appwrite connects via MySQL protocol.
+  # When set to "mongodb", the MongoDB subchart is deployed and Appwrite connects via MongoDB protocol.
+  type: mariadb
+  # -- Enable shared database tables
+  sharedTables: ""
+  # -- Shared tables v1 (legacy)
+  sharedTablesV1: ""
+  # -- Shared namespace
+  sharedNamespace: ""
+
+# VCS (Version Control System) integration
+vcs:
+  github:
+    # -- GitHub App name
+    appName: ""
+    # -- GitHub App private key
+    privateKey: ""
+    # -- GitHub App ID
+    appId: ""
+    # -- GitHub webhook secret
+    webhookSecret: ""
+    # -- GitHub OAuth client secret
+    clientSecret: ""
+    # -- GitHub OAuth client ID
+    clientId: ""
+
+# Data migrations configuration
+migrations:
+  firebase:
+    # -- Firebase migration client ID
+    clientId: ""
+    # -- Firebase migration client secret
+    clientSecret: ""
+
+# AI Assistant configuration
+assistant:
+  # -- OpenAI API key for the AI assistant
+  openaiApiKey: ""
+
+# Webhooks configuration
+webhooks:
+  # -- Maximum number of failed webhook delivery attempts
+  maxFailedAttempts: ""
+
+# SMS configuration
+sms:
+  # -- Provider used for delivering SMS for Phone authentication. Use the following format: `sms://[USER]:[SECRET]@[PROVIDER]`.
+  #Available providers are twilio, text-magic, telesign, msg91, and vonage.
+  provider: ""
+  # -- Phone number used for sending out messages. Must start with a leading '+' and maximum of 15 digits without spaces (+123456789).
+  from: ""
+  # -- Comma-separated list of project IDs denied from sending SMS
+  projectsDenyList: ""

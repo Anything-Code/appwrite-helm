@@ -1,0 +1,17 @@
+{{- if .Values.console.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ include "appwrite.fullname" $ }}-console"
+  labels:
+{{ include "appwrite.labels" $ | indent 4 }}
+    app.kubernetes.io/component: console
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+{{ include "appwrite.selectorLabels" $ | indent 4 }}
+    app.kubernetes.io/component: console
+{{- end }}
