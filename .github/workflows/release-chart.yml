@@ -3,8 +3,6 @@ name: Release Helm Chart
 on:
   push:
     branches: [master]
-    paths:
-      - "**/*"
 
 jobs:
   release:
@@ -27,17 +25,47 @@ jobs:
         uses: azure/setup-helm@v4
 
       - name: Add dependency repos
-        run: |
-          helm repo add bitnami https://charts.bitnami.com/bitnami
+        run: helm repo add bitnami https://charts.bitnami.com/bitnami
 
-      - name: Package chart and update dependencies
-        run: |
-          helm dependency build
+      - name: Build dependencies
+        run: helm dependency build
 
-      - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.6.0
-        with:
-          charts_dir: .
-          skip_existing: true
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Package and release
+        run: |
+          VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}')
+          CHART_NAME=$(grep '^name:' Chart.yaml | awk '{print $2}')
+          TAG="${CHART_NAME}-${VERSION}"
+
+          # Skip if this version is already released
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, skipping."
+            exit 0
+          fi
+
+          # Package the chart
+          mkdir -p .cr-release-packages
+          helm package . -d .cr-release-packages
+
+          # Install chart-releaser CLI
+          CR_VERSION="1.6.1"
+          curl -sSLo cr.tar.gz "https://github.com/helm/chart-releaser/releases/download/v${CR_VERSION}/chart-releaser_${CR_VERSION}_linux_amd64.tar.gz"
+          tar -xzf cr.tar.gz cr
+          chmod +x cr
+
+          # Upload the package as a GitHub Release
+          ./cr upload \
+            --owner "${{ github.repository_owner }}" \
+            --git-repo "${GITHUB_REPOSITORY#*/}" \
+            --package-path .cr-release-packages \
+            --token "${{ secrets.GITHUB_TOKEN }}" \
+            --skip-existing
+
+          # Update the Helm repo index on gh-pages
+          mkdir -p .cr-index
+          ./cr index \
+            --owner "${{ github.repository_owner }}" \
+            --git-repo "${GITHUB_REPOSITORY#*/}" \
+            --package-path .cr-release-packages \
+            --index-path .cr-index/index.yaml \
+            --token "${{ secrets.GITHUB_TOKEN }}" \
+            --push
