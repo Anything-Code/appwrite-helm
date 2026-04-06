@@ -60,6 +60,14 @@ jobs:
             --token "${{ secrets.GITHUB_TOKEN }}" \
             --skip-existing
 
+          # Ensure gh-pages branch exists
+          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git switch --orphan gh-pages
+            git commit --allow-empty -m "Initial gh-pages"
+            git push origin gh-pages
+            git switch -
+          fi
+
           # Update the Helm repo index on gh-pages
           mkdir -p .cr-index
           ./cr index \
