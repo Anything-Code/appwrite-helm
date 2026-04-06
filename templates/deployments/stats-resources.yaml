@@ -2,21 +2,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "{{ include "appwrite.fullname" $ }}-scheduler-messages"
+  name: "{{ include "appwrite.fullname" $ }}-stats-resources"
   labels:
 {{ include "appwrite.labels" $ | indent 4 }}
-    app.kubernetes.io/component: scheduler-messages
+    app.kubernetes.io/component: stats-resources
 spec:
   selector:
     matchLabels:
 {{ include "appwrite.selectorLabels" $ | indent 6 }}
-      app.kubernetes.io/component: scheduler-messages
+      app.kubernetes.io/component: stats-resources
   replicas: 1
   template:
     metadata:
       labels:
 {{ include "appwrite.labels" $ | indent 8 }}
-        app.kubernetes.io/component: scheduler-messages
+        app.kubernetes.io/component: stats-resources
       annotations:
         checksum/config-env: {{ include (print $.Template.BasePath "/config/env.yaml") . | sha256sum }}
         checksum/secrets-env: {{ include (print $.Template.BasePath "/secrets/env.yaml") . | sha256sum }}
@@ -27,14 +27,16 @@ spec:
       {{- include "redisCheck" $ | nindent 6 }}
       {{- include "dbCheck" $ | nindent 6 }}
       containers:
-      - name: appwrite-scheduler-messages
+      - name: appwrite-stats-resources
         image: "{{ .Values.appwrite.image.repository }}:{{ .Values.appwrite.image.tag | default .Chart.AppVersion }}"
         command:
-          - "schedule-messages"
+          - "stats-resources"
         {{- with .Values.appwrite.image.pullPolicy }}
         imagePullPolicy: {{ . }}
         {{- end }}
         env:
+          - name: _APP_WORKER_PER_CORE
+            value: {{ .Values.appwrite.workersPerCore | quote }}
         {{- include "dbExistingSecretEnv" $ | nindent 8 }}
         envFrom:
         - configMapRef:

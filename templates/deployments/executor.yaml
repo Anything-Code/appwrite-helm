@@ -28,6 +28,7 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      hostname: "exc"
       containers:
       - name: openruntimes-executor
         image: "{{ .Values.executor.image.repository }}:{{ .Values.executor.image.tag }}"
@@ -38,6 +39,8 @@ spec:
         - containerPort: 80
           name: http
         env:
+          - name: OPR_EXECUTOR_IMAGE_PULL
+            value: {{ .Values.executor.imagePull | default "enabled" | quote }}
           - name: OPR_EXECUTOR_INACTIVE_TRESHOLD
             value: {{ .Values.executor.inactiveThreshold | default "60" | quote }}
           - name: OPR_EXECUTOR_MAINTENANCE_INTERVAL
@@ -47,7 +50,7 @@ spec:
           - name: OPR_EXECUTOR_ENV
             value: {{ .Values.appwrite.env | quote }}
           - name: OPR_EXECUTOR_RUNTIMES
-            value: {{ include "array.join" .Values.functions.runtimes }}
+            value: {{ printf "%s,%s" (include "_arrayjoin" .Values.functions.runtimes | trimSuffix ",") (include "_arrayjoin" .Values.sites.runtimes | trimSuffix ",") | trimSuffix "," | quote }}
           - name: OPR_EXECUTOR_SECRET
             valueFrom:
               secretKeyRef:

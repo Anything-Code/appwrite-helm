@@ -2,11 +2,11 @@ dependencies:
 - name: mariadb
   repository: https://charts.bitnami.com/bitnami
   version: 11.5.5
+- name: mongodb
+  repository: https://charts.bitnami.com/bitnami
+  version: 15.1.2
 - name: redis
   repository: https://charts.bitnami.com/bitnami
   version: 17.9.0
-- name: telegraf
-  repository: https://helm.influxdata.com/
-  version: 1.8.26
-digest: sha256:efea70befb259c23bd672a563d30426397701410ef5f8fc0b072374892a880ab
-generated: "2023-03-24T23:40:32.462563174+01:00"
+digest: sha256:d697b797281d30cb1d045f883bbd19db6d0030955138e7ac2a1c241301636d75
+generated: "2026-04-06T03:02:14.441132106+02:00"

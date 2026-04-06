@@ -146,6 +146,7 @@ startupProbe:
 {{- end }}
 
 {{- define "dbCheck" -}}
+{{- if eq .Values.database.type "mariadb" }}
 - name: wait-for-mariadb
   image: busybox:1.36
   command:
@@ -158,6 +159,67 @@ startupProbe:
         sleep 2
       done
       echo "MariaDB is up!"
+{{- else if eq .Values.database.type "mongodb" }}
+- name: wait-for-mongodb
+  image: busybox:1.36
+  command:
+    - sh
+    - -c
+    - |
+      echo "Waiting for MongoDB at {{ include "appwrite.fullname" . }}-mongodb:27017..."
+      until nc -z {{ include "appwrite.fullname" . }}-mongodb 27017; do
+        echo "MongoDB is unavailable - sleeping"
+        sleep 2
+      done
+      echo "MongoDB is up!"
+{{- end }}
+{{- end }}
+
+{{/*
+Inline env vars for DB credentials when using an existing secret.
+Use: {{- include "dbExistingSecretEnv" $ | nindent 8 }}
+*/}}
+{{- define "dbExistingSecretEnv" -}}
+{{- if eq .Values.database.type "mariadb" }}
+{{- if .Values.mariadb.auth.existingSecret }}
+  - name: _APP_DB_PASS
+    valueFrom:
+      secretKeyRef:
+        name: {{ .Values.mariadb.auth.existingSecret }}
+        key: mariadb-password
+  - name: _APP_DB_ROOT_PASS
+    valueFrom:
+      secretKeyRef:
+        name: {{ .Values.mariadb.auth.existingSecret }}
+        key: mariadb-root-password
+{{- end }}
+{{- else if eq .Values.database.type "mongodb" }}
+{{- if .Values.mongodb.auth.existingSecret }}
+  - name: _APP_DB_PASS
+    valueFrom:
+      secretKeyRef:
+        name: {{ .Values.mongodb.auth.existingSecret }}
+        key: mongodb-passwords
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+envFrom secretRef for DB credentials when NOT using an existing secret.
+Use: {{- include "dbSecretEnvFrom" $ | nindent 8 }}
+*/}}
+{{- define "dbSecretEnvFrom" -}}
+{{- if eq .Values.database.type "mariadb" }}
+{{- if not .Values.mariadb.auth.existingSecret }}
+- secretRef:
+    name: {{ include "appwrite.fullname" . }}-db-env
+{{- end }}
+{{- else if eq .Values.database.type "mongodb" }}
+{{- if not .Values.mongodb.auth.existingSecret }}
+- secretRef:
+    name: {{ include "appwrite.fullname" . }}-db-env
+{{- end }}
+{{- end }}
 {{- end }}
 
 {{- define "redisCheck" -}}
@@ -205,6 +267,52 @@ affinity:
           app.kubernetes.io/component: core
       topologyKey: kubernetes.io/hostname
 {{- end }}
+{{- end }}
+
+{{/*
+Volume definitions for directories shared with the executor (builds, functions, sites).
+When executor is enabled with local storage, these must be hostPath to match the executor's mounts.
+Otherwise, they use PVCs.
+Usage: {{- include "appwrite.executorSharedVolumes" $ | nindent 6 }}
+*/}}
+{{- define "appwrite.executorSharedVolumes" -}}
+{{- if and .Values.executor.enabled (eq (lower .Values.storage.device) "local") }}
+- name: data-builds
+  hostPath:
+    path: {{ .Values.executor.hostPaths.builds | default "/var/appwrite/builds" }}
+    type: DirectoryOrCreate
+- name: data-functions
+  hostPath:
+    path: {{ .Values.executor.hostPaths.functions | default "/var/appwrite/functions" }}
+    type: DirectoryOrCreate
+- name: data-sites
+  hostPath:
+    path: {{ .Values.executor.hostPaths.sites | default "/var/appwrite/sites" }}
+    type: DirectoryOrCreate
+{{- else }}
+- name: data-builds
+  persistentVolumeClaim:
+    claimName: "{{ include "appwrite.fullname" . }}-builds"
+- name: data-functions
+  persistentVolumeClaim:
+    claimName: "{{ include "appwrite.fullname" . }}-functions"
+- name: data-sites
+  persistentVolumeClaim:
+    claimName: "{{ include "appwrite.fullname" . }}-sites"
+{{- end }}
+{{- end }}
+
+{{/*
+Volume mounts for executor-shared directories.
+Usage: {{- include "appwrite.executorSharedVolumeMounts" $ | nindent 8 }}
+*/}}
+{{- define "appwrite.executorSharedVolumeMounts" -}}
+- mountPath: /storage/builds
+  name: data-builds
+- mountPath: /storage/functions
+  name: data-functions
+- mountPath: /storage/sites
+  name: data-sites
 {{- end }}
 
 {{/*

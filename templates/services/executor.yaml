@@ -8,9 +8,10 @@ metadata:
 {{ include "appwrite.labels" $ | indent 4 }}
     app.kubernetes.io/component: executor
 spec:
-  # Headless service - each pod gets its own DNS entry
-  # Workers will connect to any available executor
-  clusterIP: None
+  # Route traffic to the executor pod on the SAME node as the caller.
+  # This is critical because builds/functions/sites storage uses hostPath,
+  # so the source files only exist on the node where the worker wrote them.
+  internalTrafficPolicy: Local
   ports:
     - port: 80
       targetPort: 80
