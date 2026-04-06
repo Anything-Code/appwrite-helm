@@ -32,7 +32,6 @@ jobs:
 
       - name: Package chart and update dependencies
         run: |
-          cd appwrite-helm
           helm dependency build
 
       - name: Run chart-releaser
